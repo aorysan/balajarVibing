@@ -65,3 +65,24 @@ export async function loginUser(input: LoginUserInput): Promise<string> {
 
   return token;
 }
+
+export async function getCurrentUser(token: string): Promise<{
+  email: string;
+  createdAt: Date;
+}> {
+  const sessionResult = await db
+    .select({
+      email: users.email,
+      createdAt: users.createdAt,
+    })
+    .from(sessions)
+    .innerJoin(users, eq(sessions.userId, users.id))
+    .where(eq(sessions.token, token))
+    .limit(1);
+
+  if (sessionResult.length === 0) {
+    throw new Error("unauthorized");
+  }
+
+  return sessionResult[0]!;
+}

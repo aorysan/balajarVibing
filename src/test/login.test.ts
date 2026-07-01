@@ -4,6 +4,11 @@ import { db } from "../db";
 import { users, sessions } from "../db/schema";
 import { eq } from "drizzle-orm";
 
+interface LoginResponse {
+  data?: string;
+  error?: string;
+}
+
 const TEST_USER = {
   nama: "Test User",
   email: "test-login@example.com",
@@ -38,22 +43,24 @@ describe("POST /api/users/login", () => {
 
     expect(res.status).toBe(200);
 
-    const body = await res.json();
+    const body = (await res.json()) as LoginResponse;
     expect(body).toHaveProperty("data");
     expect(typeof body.data).toBe("string");
 
+    const token = body.data!;
+
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-    expect(body.data).toMatch(uuidRegex);
+    expect(token).toMatch(uuidRegex);
 
     const session = await db
       .select()
       .from(sessions)
-      .where(eq(sessions.token, body.data))
+      .where(eq(sessions.token, token))
       .limit(1);
 
     expect(session.length).toBe(1);
-    expect(session[0]!.token).toBe(body.data);
+    expect(session[0]!.token).toBe(token);
   });
 
   it("should return 401 when email is wrong", async () => {
@@ -70,7 +77,7 @@ describe("POST /api/users/login", () => {
 
     expect(res.status).toBe(401);
 
-    const body = await res.json();
+    const body = (await res.json()) as LoginResponse;
     expect(body).toEqual({ error: "email salah" });
   });
 
@@ -88,7 +95,7 @@ describe("POST /api/users/login", () => {
 
     expect(res.status).toBe(401);
 
-    const body = await res.json();
+    const body = (await res.json()) as LoginResponse;
     expect(body).toEqual({ error: "email salah" });
   });
 
