@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { userRoute } from "./routes/user.route";
 
 const port = process.env.PORT || 3000;
 
@@ -24,6 +25,7 @@ const app = new Elysia()
       };
     }
   })
+  .use(userRoute)
   .listen(port);
 
 console.log(
