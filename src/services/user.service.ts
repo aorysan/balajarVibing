@@ -1,7 +1,7 @@
-import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { users } from "../db/schema";
+import { users, sessions } from "../db/schema";
+import { randomUUID } from "node:crypto";
 
 interface CreateUserInput {
   nama: string;
@@ -9,10 +9,14 @@ interface CreateUserInput {
   password: string;
 }
 
+interface LoginUserInput {
+  email: string;
+  password: string;
+}
+
 export async function createUser(input: CreateUserInput): Promise<void> {
   const { nama, email, password } = input;
 
-  // Cek apakah email sudah digunakan
   const existingUser = await db
     .select()
     .from(users)
@@ -23,13 +27,41 @@ export async function createUser(input: CreateUserInput): Promise<void> {
     throw new Error("email telah digunakan");
   }
 
-  // Hash password menggunakan bcrypt
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await Bun.password.hash(password);
 
-  // Insert user baru ke database
   await db.insert(users).values({
     nama,
     email,
     password: hashedPassword,
   });
+}
+
+export async function loginUser(input: LoginUserInput): Promise<string> {
+  const { email, password } = input;
+
+  const existingUser = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (existingUser.length === 0) {
+    throw new Error("email salah");
+  }
+
+  const user = existingUser[0]!;
+  const isPasswordValid = await Bun.password.verify(password, user.password);
+
+  if (!isPasswordValid) {
+    throw new Error("email salah");
+  }
+
+  const token = randomUUID();
+
+  await db.insert(sessions).values({
+    token,
+    userId: user.id,
+  });
+
+  return token;
 }
