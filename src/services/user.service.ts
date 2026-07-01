@@ -86,3 +86,14 @@ export async function getCurrentUser(token: string): Promise<{
 
   return sessionResult[0]!;
 }
+
+export async function logoutUser(token: string): Promise<void> {
+  const deleted = await db
+    .delete(sessions)
+    .where(eq(sessions.token, token))
+    .returning({ id: sessions.id });
+
+  if (deleted.length === 0) {
+    throw new Error("unauthorized");
+  }
+}
