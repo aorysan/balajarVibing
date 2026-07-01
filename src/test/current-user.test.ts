@@ -4,6 +4,7 @@ import { db } from "../db";
 import { users, sessions } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { parseBearerToken } from "../utils/auth";
 
 const TEST_USER = {
   nama: "Current User Test",
