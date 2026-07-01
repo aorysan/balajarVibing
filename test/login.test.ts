@@ -1,23 +1,18 @@
-import { describe, expect, it, beforeAll } from "bun:test";
-import { app } from "../app";
-import { db } from "../db";
-import { users, sessions } from "../db/schema";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { app } from "../src/app";
+import { db } from "../src/db";
+import { users, sessions } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 
-interface LoginResponse {
-  data?: string;
-  error?: string;
-}
-
 const TEST_USER = {
-  nama: "Test User",
+  nama: "Login User",
   email: "test-login@example.com",
   password: "rahasia123",
 };
 
-beforeAll(async () => {
+beforeEach(async () => {
   await db.delete(sessions);
-  await db.delete(users).where(eq(users.email, TEST_USER.email));
+  await db.delete(users);
 
   await app.handle(
     new Request("http://localhost/api/users", {
@@ -27,6 +22,11 @@ beforeAll(async () => {
     })
   );
 });
+
+interface LoginResponse {
+  data?: string;
+  error?: string;
+}
 
 describe("POST /api/users/login", () => {
   it("should return 200 and a UUID token with correct credentials", async () => {
@@ -48,9 +48,7 @@ describe("POST /api/users/login", () => {
     expect(typeof body.data).toBe("string");
 
     const token = body.data!;
-
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     expect(token).toMatch(uuidRegex);
 
     const session = await db
@@ -76,7 +74,6 @@ describe("POST /api/users/login", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as LoginResponse;
     expect(body).toEqual({ error: "email salah" });
   });
@@ -94,12 +91,11 @@ describe("POST /api/users/login", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as LoginResponse;
     expect(body).toEqual({ error: "email salah" });
   });
 
-  it("should return 422 when body is invalid (missing email)", async () => {
+  it("should return 422 when email is missing", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/users/login", {
         method: "POST",
@@ -111,7 +107,7 @@ describe("POST /api/users/login", () => {
     expect(res.status).toBe(422);
   });
 
-  it("should return 422 when body is invalid (missing password)", async () => {
+  it("should return 422 when password is missing", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/users/login", {
         method: "POST",

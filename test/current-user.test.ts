@@ -1,10 +1,8 @@
-import { describe, expect, it, beforeAll } from "bun:test";
-import { app } from "../app";
-import { db } from "../db";
-import { users, sessions } from "../db/schema";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { app } from "../src/app";
+import { db } from "../src/db";
+import { users, sessions } from "../src/db/schema";
 import { eq } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
-import { parseBearerToken } from "../utils/auth";
 
 const TEST_USER = {
   nama: "Current User Test",
@@ -12,19 +10,11 @@ const TEST_USER = {
   password: "secret123",
 };
 
-interface CurrentUserResponse {
-  data?: {
-    email: string;
-    createdAt: string;
-  };
-  error?: string;
-}
-
 let validToken: string = "";
 
-beforeAll(async () => {
+beforeEach(async () => {
   await db.delete(sessions);
-  await db.delete(users).where(eq(users.email, TEST_USER.email));
+  await db.delete(users);
 
   await app.handle(
     new Request("http://localhost/api/users", {
@@ -49,6 +39,14 @@ beforeAll(async () => {
   validToken = body.data;
 });
 
+interface CurrentUserResponse {
+  data?: {
+    email: string;
+    createdAt: string;
+  };
+  error?: string;
+}
+
 describe("GET /api/users/current", () => {
   it("should return 200 and user data with valid token", async () => {
     const res = await app.handle(
@@ -71,7 +69,6 @@ describe("GET /api/users/current", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as CurrentUserResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });
@@ -84,12 +81,11 @@ describe("GET /api/users/current", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as CurrentUserResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });
 
-  it("should return 401 with empty Authorization header", async () => {
+  it("should return 401 with empty Bearer token", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/users/current", {
         headers: { Authorization: "Bearer " },
@@ -97,7 +93,6 @@ describe("GET /api/users/current", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as CurrentUserResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });
@@ -105,12 +100,11 @@ describe("GET /api/users/current", () => {
   it("should return 401 with invalid token", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/users/current", {
-        headers: { Authorization: `Bearer ${randomUUID()}` },
+        headers: { Authorization: `Bearer invalid-token-123` },
       })
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as CurrentUserResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });

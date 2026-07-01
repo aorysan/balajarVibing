@@ -1,7 +1,7 @@
-import { describe, expect, it, beforeAll } from "bun:test";
-import { app } from "../app";
-import { db } from "../db";
-import { users, sessions } from "../db/schema";
+import { describe, it, expect, beforeEach } from "bun:test";
+import { app } from "../src/app";
+import { db } from "../src/db";
+import { users, sessions } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
@@ -11,16 +11,11 @@ const TEST_USER = {
   password: "secret123",
 };
 
-interface LogoutResponse {
-  data?: string;
-  error?: string;
-}
-
 let validToken: string = "";
 
-beforeAll(async () => {
+beforeEach(async () => {
   await db.delete(sessions);
-  await db.delete(users).where(eq(users.email, TEST_USER.email));
+  await db.delete(users);
 
   await app.handle(
     new Request("http://localhost/api/users", {
@@ -45,6 +40,11 @@ beforeAll(async () => {
   validToken = body.data;
 });
 
+interface LogoutResponse {
+  data?: string;
+  error?: string;
+}
+
 describe("GET /api/users/logout", () => {
   it("should return 200 and success message with valid token", async () => {
     const res = await app.handle(
@@ -67,7 +67,13 @@ describe("GET /api/users/logout", () => {
     expect(session.length).toBe(0);
   });
 
-  it("should return 401 when using the same token after logout", async () => {
+  it("should return 401 when using an already logged-out token", async () => {
+    await app.handle(
+      new Request("http://localhost/api/users/logout", {
+        headers: { Authorization: `Bearer ${validToken}` },
+      })
+    );
+
     const res = await app.handle(
       new Request("http://localhost/api/users/logout", {
         headers: { Authorization: `Bearer ${validToken}` },
@@ -75,7 +81,6 @@ describe("GET /api/users/logout", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as LogoutResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });
@@ -86,7 +91,6 @@ describe("GET /api/users/logout", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as LogoutResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });
@@ -99,7 +103,6 @@ describe("GET /api/users/logout", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as LogoutResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });
@@ -112,7 +115,6 @@ describe("GET /api/users/logout", () => {
     );
 
     expect(res.status).toBe(401);
-
     const body = (await res.json()) as LogoutResponse;
     expect(body).toEqual({ error: "unauthorized" });
   });
